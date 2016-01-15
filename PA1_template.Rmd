@@ -5,21 +5,179 @@ output:
     keep_md: true
 ---
 
+This is an R Markdown document for Course Project 1 from Coursera's Reproducible Research.
 
-## Loading and preprocessing the data
+This assignment makes use of data from a personal activity monitoring device. This device collects data at 5 minute intervals through out the day. The data consists of two months of data from an anonymous individual collected during the months of October and November, 2012 and include the number of steps taken in 5 minute intervals each day.
+
+The data for this assignment can be downloaded from the course web site:
+
+[Dataset: Activity monitoring data](https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2Factivity.zip)
+
+The variables included in this dataset are:
+
+*steps: Number of steps taking in a 5-minute interval (missing values are coded as NA)
+*date: The date on which the measurement was taken in YYYY-MM-DD format
+*interval: Identifier for the 5-minute interval in which measurement was taken
+
+The dataset is stored in a comma-separated-value (CSV) file and there are a total of 17,568 observations in this dataset.
+
+##Loading and preprocessing the data
+
+Step zero: Download the data. This will not be shown in the report, but you can find the code here:
+
+*fileUrl <- "https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2Factivity.zip"
+*download.file(fileUrl, "./RRCP1.zip")
+*unzip("RRCP1.zip")
+
+1. Load the data 
+
+First I will read the data using a simple read.csv() and activating header.
+
+```{r}
+file <- read.csv("./activity.csv", header = TRUE)
+```
+
+Let's see head and tail for the file to identify columns and data type:
+
+```{r}
+head(file)
+tail(file)
+```
+
+2. Process/transform the data (if necessary) into a format suitable for your analysis
+
+Now let's exclude NA values in 'steps' column. Then let's see new head for cleaned file.
+
+```{r}
+fileClean <- file[!is.na(file$steps),]
+head(fileClean)
+```
+
+##What is mean total number of steps taken per day?
+
+For this part of the assignment I will ignore the missing values in the dataset.
+
+1. Calculate the total number of steps taken per day
+Let's use function aggregate to sum (FUN = sum) 'steps' column based on 'date' column.
+
+```{r}
+fileSum <- aggregate(fileClean$steps, by = list(fileClean$date), FUN = sum)
+names(fileSum) <- c("date","steps")
+print(fileSum)
+```
+
+2. If you do not understand the difference between a histogram and a barplot, research the difference between them. Make a histogram of the total number of steps taken each day
+Now I will print an histogram with hist() function based on 'steps' column.
+
+```{r}
+hist(fileSum$steps, col ="green", xlab="steps")
+```
+
+3. Calculate and report the mean and median of the total number of steps taken per day
+Let's include a table for each measure in the same way we did for SUM in point 1.
+
+```{r}
+aggregate(fileClean$steps, by = list(fileClean$date), FUN = mean)
+aggregate(fileClean$steps, by = list(fileClean$date), FUN = median)
+```
+
+##What is the average daily activity pattern?
+
+*Make a time series plot (i.e. type = "l") of the 5-minute interval (x-axis) and the average number of steps taken, averaged across all days (y-axis)
+
+For plotting let's load library ggplot2
+
+```{r}
+library(ggplot2)
+```
+
+Now lets create the time series plot based on 'interval' as y-axis and avg 'steps' as x-axis.
+
+```{r}
+qplot(interval, steps, data = fileClean)
+```
+
+*Which 5-minute interval, on average across all the days in the dataset, contains the maximum number of steps?
+
+I will create a new table containing the row with the highest 'steps' value (maximum).
+
+```{r}
+fileMax <- fileClean[which(fileClean[,"steps"]==max(fileClean$steps)),]
+head(fileMax)
+```
+
+Then lets extract the value from the question:
+
+```{r}
+fileMax$interval
+```
+
+##Imputing missing values
+
+Note that there are a number of days/intervals where there are missing values (coded as NA). The presence of missing days may introduce bias into some calculations or summaries of the data.
+
+1. Calculate and report the total number of missing values in the dataset (i.e. the total number of rows with NAs)
+
+I will use a sum to calculate all values showing TRUE (value 1) to validation if it is NA with is.na function
+
+```{r}
+sum(is.na(file$steps))
+```
+
+2. Devise a strategy for filling in all of the missing values in the dataset. The strategy does not need to be sophisticated. For example, you could use the mean/median for that day, or the mean for that 5-minute interval, etc.
+
+First I will create a column containing all mean values (from cleaned file) for each date. To use it when we do not have a 'steps' value.
+
+```{r}
+newSteps <- aggregate(fileClean$steps, by = list(fileClean$interval), FUN = mean)
+names(newSteps) <- c("interval","stepsMean")
+head(newSteps)
+```
+
+3. Create a new dataset that is equal to the original dataset but with the missing data filled in.
+
+And now lets join column stepsMean to the main table in a new variable called 'fileCompleted'
+
+```{r}
+fileCompleted <- merge(file,newSteps,by.x="interval", by.y="interval")
+head(fileCompleted)
+```
+
+Now lets create a new column containing newSteps (for NA replace steps with stepsMean column)
+
+```{r}
+fileCompleted$newSteps <- ifelse(is.na(fileCompleted$steps),fileCompleted$stepsMean,fileCompleted$steps)
+head(fileCompleted)
+tail(fileCompleted)
+```
 
 
+4. Make a histogram of the total number of steps taken each day and Calculate and report the mean and median total number of steps taken per day. Do these values differ from the estimates from the first part of the assignment? What is the impact of imputing missing data on the estimates of the total daily number of steps?
 
-## What is mean total number of steps taken per day?
+Now lets reapply R code used for prior steps but to the file with missing values completed.
 
+```{r}
+hist(fileCompleted$newSteps, col ="green", xlab="steps")
+aggregate(fileCompleted$newSteps, by = list(fileCompleted$interval), FUN = mean)
+aggregate(fileCompleted$newSteps, by = list(fileCompleted$interval), FUN = median)
+```
 
+Histogram differs greatly from data without missing values.
 
-## What is the average daily activity pattern?
+##Are there differences in activity patterns between weekdays and weekends?
 
+For this part the weekdays() function may be of some help here. Use the dataset with the filled-in missing values for this part.
 
+1. Create a new factor variable in the dataset with two levels - "weekday" and "weekend" indicating whether a given date is a weekday or weekend day.
 
-## Imputing missing values
+```{r}
+fileCompleted$dayType<- ifelse(weekdays(as.Date(fileCompleted$date)) %in% c("lunes","martes","miercoles","jueves","viernes"),"weekday","weekend")
+head(fileCompleted)
+```
 
+2. Make a panel plot containing a time series plot (i.e. type = "l") of the 5-minute interval (x-axis) and the average number of steps taken, averaged across all weekday days or weekend days (y-axis). See the README file in the GitHub repository to see an example of what this plot should look like using simulated data.
 
-
-## Are there differences in activity patterns between weekdays and weekends?
+```{r}
+fileLast <- aggregate(newSteps ~ interval + date + dayType, data=fileCompleted, mean)
+ggplot(fileLast, aes(interval, newSteps)) + geom_line() + facet_grid(dayType ~ .) + xlab("5-minute interval") + ylab("Number of steps")
+```
